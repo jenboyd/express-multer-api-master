@@ -1,7 +1,11 @@
 'use strict';
 
+//this had to come before anything else.
+require('dotenv').config();
+
 const fs = require('fs');
 const fileType = require('file-type');
+const AWS = require('aws-sdk');
 
 const filename = process.argv[2] || '';
 
@@ -31,6 +35,13 @@ const parseFile = (fileBuffer) => {
   return file;
 };
 
+const s3 = new AWS.S3({
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  }
+});
+
 const upload = (file) => {
   const options = {
     //get bucket name from AWS console
@@ -40,17 +51,26 @@ const upload = (file) => {
     //allow anyone to access the URL of the uploaded file
     ACL: 'public-read',
     //tell s3 what the mime-type is
-    contentType: file.mime,
+    ContentType: file.mime,
     //pick a filename for S3 to use for the upload
-    key: `test/test.$file.ext`
+    Key: `test/test.${file.ext}`
   };
-  return Promise.resolve(options);
+  return new Promise((resolve, reject) => {
+    s3.upload(options, (error, data) => {
+      if (error) {
+        reject(error);
+      }
+      resolve (data);
+    });
+  });
 };
 
+
+
 //don't actually upload yet, just pass the data down the Promise chain
-const logMessage = (upload) => {
+const logMessage = (response) => {
   delete upload.body;
-  console.log(`the upload options are ${JSON.stringify(upload)}`);
+  console.log(`response from AWS was options are ${response}`);
 };
 
 readFile(filename)
